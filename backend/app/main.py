@@ -18,6 +18,16 @@ app.add_middleware(
 LOG_TIMESTAMP_PATTERN = re.compile(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})")
 LOG_FORMAT = "%Y-%m-%d %H:%M:%S,%f"
 
+REPAIR_PATTERNS = [
+    ("Anticompaction Start", re.compile(r"Starting anticompaction for (\S+)")),
+    ("Anticompaction File", re.compile(r"Anticompacting \[BigTableReader\(path='([^']+)'\)\]")),
+    ("Anticompaction Skipped", re.compile(r"do not intersect repaired ranges")),
+    ("Repair Failure", re.compile(r"Repair task failed")),
+    ("Repair Session Failure", re.compile(r"Repair session .* failed with error")),
+    ("Validation Complete", re.compile(r"Validation complete")),
+    ("Streaming Start", re.compile(r"Syncing files for")),
+]
+
 class AnalyzeRequest(BaseModel):
     path: str
 
@@ -36,6 +46,7 @@ async def analyze_local(request: AnalyzeRequest):
             continue
 
         log_summary = {}
+        repair_entries = []
 
         for log_file in ["system.log", "debug.log"]:
             file_path = os.path.join(node_dir, log_file)
@@ -44,13 +55,33 @@ async def analyze_local(request: AnalyzeRequest):
 
             timestamps = []
             try:
-                with open(file_path, "r") as f:
+                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                     for line in f:
                         match = LOG_TIMESTAMP_PATTERN.search(line)
                         if match:
                             try:
                                 timestamp = datetime.strptime(match.group(1), LOG_FORMAT)
                                 timestamps.append(timestamp)
+
+                                # Only analyze repair-related lines
+                                if "repair" in line.lower():
+                                    for category, pattern in REPAIR_PATTERNS:
+                                        if pattern.search(line):
+                                            level = "INFO"
+                                            if "ERROR" in line:
+                                                level = "ERROR"
+                                            elif "WARN" in line:
+                                                level = "WARN"
+
+                                            repair_entries.append({
+                                                "timestamp": match.group(1),
+                                                "file": log_file,
+                                                "node": node_ip,
+                                                "severity": level,
+                                                "category": category,
+                                                "line": line.strip()
+                                            })
+                                            break
                             except ValueError:
                                 continue
             except Exception:
@@ -63,8 +94,11 @@ async def analyze_local(request: AnalyzeRequest):
                     "count": len(timestamps)
                 }
 
-        if log_summary:
-            node_summaries[node_ip] = log_summary
+        if log_summary or repair_entries:
+            node_summaries[node_ip] = {
+                "logs": log_summary,
+                "repairs": repair_entries
+            }
 
     return {
         "base_folder": base_path,

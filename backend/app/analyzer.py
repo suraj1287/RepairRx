@@ -1,37 +1,56 @@
+# File: backend/app/analyzer.py
+
 import os
-from glob import glob
+import re
 from datetime import datetime
+from glob import glob
 
-def analyze_opscenter_repair_logs(base_folder):
-    repair_log_dir = os.path.join(base_folder, "opscenterd/repair_service_logs")
-    results = []
+def extract_timestamps(file_path):
+    timestamp_pattern = re.compile(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})")
+    log_format = "%Y-%m-%d %H:%M:%S,%f"
+    timestamps = []
 
-    if not os.path.exists(repair_log_dir):
-        return []
-
-    log_files = glob(os.path.join(repair_log_dir, "*.log"))
-
-    for log_file in log_files:
-        with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             for line in f:
-                if "Repair task completed" in line or "Repair task failed" in line:
+                match = timestamp_pattern.search(line)
+                if match:
                     try:
-                        timestamp = datetime.strptime(line[:23], "%Y-%m-%d %H:%M:%S,%f")
-                    except Exception:
+                        timestamps.append(datetime.strptime(match.group(1), log_format))
+                    except ValueError:
                         continue
+    except Exception:
+        pass
 
-                    status = "success" if "completed" in line else "failed"
-                    keyspace = "unknown"
-                    if "for keyspace" in line:
-                        parts = line.split("for keyspace")
-                        if len(parts) > 1:
-                            keyspace = parts[1].split()[0].strip()
+    return timestamps
 
-                    results.append({
-                        "file": os.path.basename(log_file),
-                        "timestamp": timestamp.isoformat(),
-                        "status": status,
-                        "keyspace": keyspace,
-                        "line": line.strip()
-                    })
+def analyze_logs(base_path):
+    results = {}
+    nodes_path = os.path.join(base_path, "nodes")
+    if not os.path.isdir(nodes_path):
+        return {"error": f"{nodes_path} is not a valid directory"}
+
+    for node_ip in os.listdir(nodes_path):
+        node_logs_path = os.path.join(nodes_path, node_ip, "logs", "cassandra")
+        if not os.path.isdir(node_logs_path):
+            continue
+
+        log_summary = {}
+
+        for log_file in ["system.log", "debug.log"]:
+            file_path = os.path.join(node_logs_path, log_file)
+            if not os.path.isfile(file_path):
+                continue
+
+            timestamps = extract_timestamps(file_path)
+            if timestamps:
+                log_summary[log_file] = {
+                    "start": min(timestamps).isoformat(),
+                    "end": max(timestamps).isoformat(),
+                    "count": len(timestamps),
+                }
+
+        if log_summary:
+            results[node_ip] = log_summary
+
     return results

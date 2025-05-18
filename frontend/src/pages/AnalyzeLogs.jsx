@@ -1,83 +1,145 @@
-// frontend/src/pages/AnalyzeLogs.jsx
 import React, { useState } from "react";
 import axios from "axios";
 
+const severityColors = {
+  INFO: "text-blue-600",
+  WARN: "text-yellow-600",
+  ERROR: "text-red-600",
+};
+
 const AnalyzeLogs = () => {
   const [path, setPath] = useState("");
-  const [data, setData] = useState(null);
-  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
+  const [expandedNodes, setExpandedNodes] = useState({});
+  const [severityFilter, setSeverityFilter] = useState("ALL");
 
   const handleAnalyze = async () => {
-    setError("");
     try {
-      const res = await axios.post("http://localhost:8000/analyze-local", {
-        path: path.trim(),
+      const response = await axios.post("http://127.0.0.1:8000/analyze-local", {
+        path,
       });
-      setData(res.data);
-    } catch (err) {
-      console.error(err);
-      setError("❌ Failed to analyze logs. Check backend or path.");
+      setResult(response.data);
+    } catch (error) {
+      console.error("Error analyzing logs:", error);
     }
   };
 
-  const getHealthColor = (count) => {
-    if (count === 0) return "text-red-600";
-    if (count < 5000) return "text-yellow-500";
-    return "text-green-600";
+  const toggleNode = (node) => {
+    setExpandedNodes((prev) => ({
+      ...prev,
+      [node]: !prev[node],
+    }));
+  };
+
+  const filteredRepairs = (repairs) => {
+    if (severityFilter === "ALL") return repairs;
+    return repairs.filter((r) => r.severity === severityFilter);
   };
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-2">🛠️ Analyze Extracted Diagnostic Logs</h2>
-      <input
-        className="border p-2 w-full rounded mb-4"
-        type="text"
-        placeholder="Enter full path to extracted /nodes directory"
-        value={path}
-        onChange={(e) => setPath(e.target.value)}
-      />
-      <button onClick={handleAnalyze} className="bg-blue-600 text-white px-4 py-2 rounded">
-        Analyze
-      </button>
+    <div className="p-6">
+      <h2 className="text-2xl font-bold mb-4">Analyze Cassandra Logs</h2>
+      <div className="mb-4">
+        <input
+          type="text"
+          value={path}
+          onChange={(e) => setPath(e.target.value)}
+          placeholder="Enter path to extracted diagnostic folder"
+          className="border border-gray-300 rounded px-3 py-2 w-2/3 mr-2"
+        />
+        <button
+          onClick={handleAnalyze}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          Analyze
+        </button>
+      </div>
 
-      {error && <div className="mt-4 text-red-600">{error}</div>}
-
-      {data && data.base_folder && (
-        <>
-          <div className="mt-6 text-gray-500 text-sm">
-            📁 Base folder: <code>{data.base_folder}</code>
+      {result && (
+        <div>
+          <div className="mb-4">
+            <strong>📂 Base Folder:</strong> {result.base_folder}
           </div>
 
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(data.node_summaries || {}).map(([nodeIp, logs]) => {
-              const systemLog = logs["system.log"] || {};
-              const debugLog = logs["debug.log"] || {};
-              const total = (systemLog.count || 0) + (debugLog.count || 0);
-              const color = getHealthColor(total);
+          <div className="flex items-center mb-2 gap-3">
+            <span className="font-semibold">Filter by severity:</span>
+            {["ALL", "INFO", "WARN", "ERROR"].map((level) => (
+              <button
+                key={level}
+                onClick={() => setSeverityFilter(level)}
+                className={`px-3 py-1 rounded border ${
+                  severityFilter === level
+                    ? "bg-gray-800 text-white"
+                    : "bg-white text-gray-800"
+                }`}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
 
-              return (
-                <div key={nodeIp} className={`p-4 border rounded shadow ${color}`}>
-                  <div className="font-semibold">🖥️ Node: {nodeIp}</div>
-                  <div>📊 Total Entries: {total}</div>
-                  <div className="text-sm mt-2">
-                    <div>🧾 system.log:</div>
-                    <div className="ml-2 text-xs">
-                      ⏱️ From: {systemLog.start || "-"}<br />
-                      ⏱️ To: {systemLog.end || "-"}<br />
-                      📄 Count: {systemLog.count || 0}
-                    </div>
-                    <div className="mt-1">🧾 debug.log:</div>
-                    <div className="ml-2 text-xs">
-                      ⏱️ From: {debugLog.start || "-"}<br />
-                      ⏱️ To: {debugLog.end || "-"}<br />
-                      📄 Count: {debugLog.count || 0}
-                    </div>
+          {Object.entries(result.node_summaries).map(([node, data]) => (
+            <div key={node} className="border rounded mb-6 shadow">
+              <div className="bg-gray-100 px-4 py-2 flex justify-between items-center">
+                <h3 className="font-semibold">
+                  🖥️ Node: <span className="text-indigo-600">{node}</span>
+                </h3>
+                <button
+                  onClick={() => toggleNode(node)}
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  {expandedNodes[node] ? "Collapse ▲" : "Expand ▼"}
+                </button>
+              </div>
+
+              {expandedNodes[node] && (
+                <div className="p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    {["system.log", "debug.log"].map((log) => {
+                      const logData = data.logs[log];
+                      if (!logData) return null;
+                      let color =
+                        logData.count === 0
+                          ? "text-red-600"
+                          : logData.count < 5000
+                          ? "text-yellow-600"
+                          : "text-green-600";
+
+                      return (
+                        <div key={log} className="bg-white p-3 border rounded">
+                          <h4 className="font-medium">{log}</h4>
+                          <p className={color}>
+                            From <code>{logData.start}</code> to{" "}
+                            <code>{logData.end}</code> —{" "}
+                            <strong>{logData.count}</strong> entries
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
+
+                  {data.repairs && filteredRepairs(data.repairs).length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="font-medium mb-2">🛠️ Repair Events</h4>
+                      <div className="space-y-1 max-h-72 overflow-y-auto border rounded p-2 bg-gray-50">
+                        {filteredRepairs(data.repairs).map((entry, idx) => (
+                          <div
+                            key={idx}
+                            className={`text-sm ${severityColors[entry.severity] || "text-gray-800"}`}
+                          >
+                            <code>{entry.timestamp}</code> —{" "}
+                            <strong>{entry.category}</strong>:{" "}
+                            <span>{entry.line}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        </>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
