@@ -1,180 +1,189 @@
 # RepairRx 🛠️📊
 
 **Version:** 1.0  
+**Last Updated:** May 18, 2025  
 **Author:** Suraj Shelke  
-**Date:** May 18, 2025  
-**Repository:** [github.com/suraj1287/RepairRx](https://github.com/suraj1287/RepairRx)
+**GitHub:** [github.com/suraj1287/RepairRx](https://github.com/suraj1287/RepairRx)
 
 ---
 
-## 🔍 What is RepairRx?
+## 📘 Project Overview
 
-RepairRx is a GenAI-powered diagnostic log analysis assistant tailored for **Apache Cassandra** and **DataStax Enterprise (DSE)** clusters. It was designed to streamline root-cause analysis and provide **rapid repair insights** by parsing `system.log`, `debug.log`, and optionally, **OpsCenter repair logs** from diagnostic tarballs.
+**RepairRx** is a full-stack diagnostic assistant built to help **support engineers** rapidly analyze **repair-related issues** in **Apache Cassandra** and **DataStax Enterprise (DSE)** clusters.
 
-> This tool reduces manual toil and accelerates RCA during high-priority support cases by turning complex logs into structured, visual repair insights.
-
----
-
-## 💡 Why the name “RepairRx”?
-
-Just like a prescription (Rx) helps fix symptoms in healthcare, **RepairRx** offers a remedy for Cassandra/DSE repair pains. It diagnoses, categorizes, and visualizes cluster health & repair anomalies — node by node.
+Designed for **urgent troubleshooting**, it parses extracted diagnostic tarballs and presents:
+- 📊 Node-level log coverage (system/debug).
+- 🛠️ Deep repair diagnostics (anticompaction, failures, validation).
+- 🎨 Visual health indicators with drill-down support.
 
 ---
 
-## 🧱 Tech Stack
+## 🎯 Motivation
 
-| Layer         | Tools Used                        |
-|---------------|-----------------------------------|
-| Frontend      | React, Tailwind CSS, React Router |
-| Backend       | FastAPI, Python 3.11+             |
-| Log Parsing   | Regex, datetime, categorization   |
-| Communication | REST API                          |
+As a Cloud Support Engineer, I often receive diagnostic tarballs or logs from customers asking:  
+**“Was repair running?” “Why did it fail?” “Do the logs contain the time I reported?”**
+
+The traditional way of answering this is time-consuming.  
+**RepairRx** was built to:
+- Automate the first-level analysis.
+- Detect common failure patterns.
+- Empower engineers with GenAI-enhanced insights and UI-driven summarization.
 
 ---
 
-## 🚧 Journey & Steps Followed
+## 🛠️ Tech Stack
 
-### 🛠️ Project Initialization
+| Layer         | Technology Used         |
+|---------------|--------------------------|
+| Frontend UI   | React + Tailwind CSS     |
+| Backend API   | FastAPI (Python 3.13)    |
+| Log Parsing   | Regex-based, severity-aware |
+| Deployment    | Local-first (no upload needed) |
+| GenAI (future)| OpenAI GPT-4o planned for insight generation |
 
+---
+
+## 🏗️ Architecture Overview
+
+📁 Diagnostic Folder (local)
+└── nodes//logs/cassandra/{system.log, debug.log}
+└── opscenterd/repair_service_logs/ (optional)
+
+🌐 Frontend (React)
+└── Sidebar Navigation
+└── Analyze Logs page
+└── Displays: Node Summary, Repair Categories, Severity
+
+🧠 Backend (FastAPI)
+└── /analyze-local API
+├── Timestamp extraction from logs
+├── Repair pattern recognition
+├── Severity grouping (INFO, WARN, ERROR)
+├── Response JSON → rendered by React
+
+---
+
+## 🔁 Build Journey & Key Steps
+
+This section outlines **how I built RepairRx from scratch**:
+
+### ✅ Backend (FastAPI)
+- Initialized `main.py` with a working `/analyze-local` POST API.
+- Parses system/debug logs from diagnostic tarball path.
+- Extracts timestamp ranges, log counts per node.
+- Extended to include repair log classification:
+  - Anticompaction Start
+  - Validation Complete
+  - Repair Session Failures
+- Classified by severity (INFO/WARN/ERROR).
+
+### ✅ Frontend (React + Tailwind)
+- Initialized React project with Vite + Tailwind setup.
+- Created `Sidebar.jsx` for navigation.
+- Built `AnalyzeLogs.jsx` to:
+  - Accept user input path.
+  - Display log summary + repair diagnostics.
+  - Color-code based on severity.
+  - Expand/collapse per node.
+
+### ✅ Fixes and Enhancements
+- 📦 Switched from upload to local directory scan.
+- 🪵 Rewrote log readers to be fault-tolerant.
+- 🎨 Made repair entries scrollable and grouped.
+- 🧪 Manually verified timestamp match per node.
+- 🐞 Fixed UI crash on large logs by limiting & grouping entries.
+- 🗂️ Structured screenshots under `/frontend/assets/`
+
+---
+
+## 🚀 Usage Instructions
+
+### 1. Clone the Repository
 ```bash
-mkdir RepairRx && cd RepairRx
-gh repo create RepairRx --public
+git clone https://github.com/suraj1287/RepairRx.git
+cd RepairRx
 
-	•	Created backend and frontend folders.
-	•	Initialized Git tracking and pushed first commit.
 
 ⸻
 
-⚙️ Backend Setup (FastAPI)
-
-1. Folder structure:
-
-backend/
-└── app/
-    ├── main.py
-    └── analyzer.py
-
-2. Python Virtual Environment:
+2. Backend Setup (FastAPI)
 
 cd backend
 python3 -m venv venv
 source venv/bin/activate
-pip install fastapi uvicorn
+pip install -r requirements.txt
+uvicorn app.main:app --reload
 
-3. Core endpoints added:
-	•	/analyze-local: Accepts a local folder path, parses logs from nodes.
-	•	Log timestamps are extracted and summarized per node and log file.
-	•	Added deep repair diagnostics using regex match patterns for:
-	•	Validation Complete
-	•	Anticompaction Start
-	•	Repair Session Failed
-	•	Streaming Started, etc.
-
-4. Example curl test:
-
-curl -X POST http://127.0.0.1:8000/analyze-local \
-  -H "Content-Type: application/json" \
-  -d '{"path": "/Users/suraj/Downloads/prd_cluster-diagnostics-2025_05_09_07_04_17_UTC"}'
-
+Runs on: http://127.0.0.1:8000/analyze-local
 
 ⸻
 
-🖥️ Frontend Setup (React + Tailwind)
+3. Frontend Setup (React)
 
 cd frontend
-npm create vite@latest
 npm install
-npm install -D tailwindcss postcss autoprefixer react-router-dom axios
-npx tailwindcss init -p
+npm run dev
 
-	•	Tailwind integrated in src/index.css
-	•	Page structure:
-	•	src/pages/AnalyzeLogs.jsx
-	•	src/components/Sidebar.jsx
-	•	Routing added via App.jsx
+Open: http://localhost:5173
 
 ⸻
 
-🔍 Functionality Implemented
+4. Prepare Diagnostic Tarball
 
-✅ Local Path Navigation
-	•	No need to upload — just paste the full extracted diagnostics path.
-	•	Parses:
-	•	system.log, debug.log
-	•	Optionally: opscenterd/repair_service_logs/ (if included)
+Extract the file under:
 
-📊 Log Summary
-	•	Per node: Start timestamp, End timestamp, Count of entries
-	•	Files tracked: system.log, debug.log
+/Users/<your-username>/Downloads/<diagnostic-folder>/
 
-🧠 Deep Repair Diagnostics
-	•	Filters only repair-related lines.
-	•	Categories: Repair Session Failure, Anticompaction Start, etc.
-	•	Grouped by:
-	•	Node
-	•	Log type
-	•	Severity (INFO, WARN, ERROR)
-
-🎨 UI Enhancements
-	•	Color-coded badges for severity
-	•	Expand/collapse per-node details
-	•	Scrollable summary section
-
-⸻
-
-🧪 Testing Done
-	•	Verified backend /analyze-local endpoint with real diagnostic tarballs
-	•	Frontend tested using React dev server on http://localhost:5173
-	•	Confirmed log timeline and repair pattern extraction works across 30+ nodes
-
-⸻
-
-📦 Folder Expectations
-
-Extract diagnostic tarball like:
-
-/Users/suraj/Downloads/prd_cluster-diagnostics-2025_05_09_07_04_17_UTC/
-
-And expect:
+Make sure it contains:
 
 nodes/<ip>/logs/cassandra/{system.log, debug.log}
-opscenterd/repair_service_logs/  (optional)
 
 
 ⸻
 
-📷 Screenshots
+🧪 Features in Action
 
-🟩 Node Health Timeline
+✅ Per-node Log Coverage
 
-🧠 Repair Diagnostic Grouping
+Shows start → end timestamps with log count.
+
+
+⸻
+
+⚠️ Repair Log Breakdown
+
+Grouped by type and severity.
 
 
 ⸻
 
-📈 Future Roadmap (Optional Enhancements)
+🔍 Timeline + Severity View
 
-Reserved for v2.x
+Helpful for comparing time ranges with issue window.
 
-	•	Export results to CSV/JSON
-	•	Snapshot diff comparison
-	•	Regex rule tuning
-	•	Streamline full upload workflow via browser
-	•	Role-based usage (Support vs DevOps)
 
 ⸻
 
-🙋‍♂️ Maintainer
+🔮 Future Enhancements
+
+Planned in v2.x:
+	•	Export JSON/CSV snapshots.
+	•	Search repair logs by keyspace/table.
+	•	Filter logs by date/time range.
+	•	Detect known failure patterns like:
+	•	“Repair already finished”
+	•	“Stream failed”
+	•	“Session timed out”
+	•	GenAI Recommendations (GPT-4o).
+
+⸻
+
+👨‍💻 Maintained by
 
 Suraj Shelke
-Cloud Support Engineer — Apache Cassandra & DSE
+Cloud Support Engineer – Apache Cassandra / DSE
 Mumbai, India
 GitHub: suraj1287
-
-⸻
-
-🌍 GitHub Project Link
-
-🔗 https://github.com/suraj1287/RepairRx
+Project: RepairRx
 
 ⸻
