@@ -1,8 +1,3 @@
-Great! Below is a professional, comprehensive, and well-structured README to replace your current one. It includes every major step you took — from project setup, backend/frontend wiring, deep repair diagnostics integration, log parser logic, UI improvements, and more — with explanation for each.
-
-⸻
-
-
 # RepairRx 🛠️📊
 
 **Version:** 1.0  
@@ -79,7 +74,7 @@ pip install fastapi uvicorn
 
 curl -X POST http://127.0.0.1:8000/analyze-local \
   -H "Content-Type: application/json" \
-  -d '{"path": "/Users/suraj/Downloads/ibngprd_cluster-diagnostics-2025_05_09_07_04_17_UTC"}'
+  -d '{"path": "/Users/suraj/Downloads/prd_cluster-diagnostics-2025_05_09_07_04_17_UTC"}'
 
 
 ⸻
@@ -138,7 +133,7 @@ npx tailwindcss init -p
 
 Extract diagnostic tarball like:
 
-/Users/suraj/Downloads/ibngprd_cluster-diagnostics-2025_05_09_07_04_17_UTC/
+/Users/suraj/Downloads/prd_cluster-diagnostics-2025_05_09_07_04_17_UTC/
 
 And expect:
 
@@ -183,6 +178,3 @@ GitHub: suraj1287
 🔗 https://github.com/suraj1287/RepairRx
 
 ⸻
-
-
-Let me know if you'd like this broken into sections for a blog, doc site, or PDF.
